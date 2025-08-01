@@ -161,41 +161,128 @@ class NavsimDataset(Dataset):
                 
         return scene_info
     
-    def _load_single_scene_info(self, scene_dir):
-        """加载单个场景的帧信息"""
-        scene_frames = []
+    # def _load_single_scene_info(self, scene_dir):
+    #     """加载单个场景的帧信息"""
+    #     scene_frames = []
         
+    #     try:
+    #         # 获取LiDAR点云文件
+    #         lidar_dir = os.path.join(scene_dir, "MergedPointCloud")
+    #         if not os.path.exists(lidar_dir):
+    #             print(f"警告: 点云目录不存在: {lidar_dir}")
+    #             return scene_frames
+            
+    #         lidar_files = sorted(glob.glob(os.path.join(lidar_dir, "*.pcd")))
+    #         if not lidar_files:
+    #             print(f"警告: 未在 {lidar_dir} 中找到点云文件")
+    #             return scene_frames
+            
+    #         # 获取相机图像文件
+    #         cam_dirs = ["CAM_F0", "CAM_L0", "CAM_R0", "CAM_B0"]
+            
+    #         for i in range(len(lidar_files)):
+    #             lidar_file = lidar_files[i]
+    #             frame_id = os.path.basename(lidar_file).split('.')[0]
+                
+    #             # 为每个LiDAR帧找到对应的相机图像
+    #             # cam_images = {}
+    #             # cam_files_exist = False
+    #             # for cam in cam_dirs:
+    #             #     cam_dir = os.path.join(scene_dir, cam)
+    #             #     cam_file = os.path.join(cam_dir, f"{frame_id}.jpg")
+    #             #     if os.path.exists(cam_file):
+    #             #         cam_images[cam] = cam_file
+    #             #         cam_files_exist = True
+                
+    #             # --- 新方案：按照索引对齐，不再靠同名文件 ----------------
+    #             cam_images = {}
+    #             cam_files_exist = False
+    
+    #             for cam in cam_dirs:
+    #                 cam_dir = os.path.join(scene_dir, cam)
+    #                 if not os.path.isdir(cam_dir):
+    #                     continue
+    
+    #                 # **一次性缓存每个目录下已排序的文件列表**（提高速度）
+    #                 cache_key = f"__filelist__::{cam_dir}"
+    #                 if cache_key not in self.cache:
+    #                     self.cache[cache_key] = sorted(
+    #                         glob.glob(os.path.join(cam_dir, "*.jpg"))
+    #                     )
+    #                 jpg_files = self.cache[cache_key]
+    
+    #                 # 如果相机帧总数跟 LiDAR 不一致就尽量对齐
+    #                 if i < len(jpg_files):
+    #                     cam_images[cam] = jpg_files[i]
+    #                     cam_files_exist = True
+
+
+
+
+    #             # 只有当至少有一个相机图像存在时，才添加这个帧
+    #             if cam_files_exist or i % 10 == 0:  # 确保即使没有图像，至少每10帧添加一个
+    #                 scene_frames.append({
+    #                     'scene_dir': scene_dir,
+    #                     'lidar_file': lidar_file,
+    #                     'cam_files': cam_images,
+    #                     'frame_id': frame_id,
+    #                     'scene_id': os.path.basename(scene_dir),
+    #                     'frame_index': i,
+    #                 })
+            
+    #         return scene_frames
+    #     except Exception as e:
+    #         print(f"加载场景 {scene_dir} 时出错: {e}")
+    #         return []
+
+
+    def _load_single_scene_info(self, scene_dir):
+        """加载单个场景的帧信息（按索引对齐相机帧）"""
+        scene_frames = []
+
         try:
-            # 获取LiDAR点云文件
+            # ---------- 1) 读取 LiDAR 列表 ----------
             lidar_dir = os.path.join(scene_dir, "MergedPointCloud")
             if not os.path.exists(lidar_dir):
                 print(f"警告: 点云目录不存在: {lidar_dir}")
                 return scene_frames
-            
+
             lidar_files = sorted(glob.glob(os.path.join(lidar_dir, "*.pcd")))
             if not lidar_files:
                 print(f"警告: 未在 {lidar_dir} 中找到点云文件")
                 return scene_frames
-            
-            # 获取相机图像文件
+
+            # ---------- 2) 预扫描各相机目录的 JPG 列表 ----------
             cam_dirs = ["CAM_F0", "CAM_L0", "CAM_R0", "CAM_B0"]
-            
-            for i in range(len(lidar_files)):
-                lidar_file = lidar_files[i]
+            cam_file_lists = {}
+            for cam in cam_dirs:
+                cam_dir = os.path.join(scene_dir, cam)
+                if not os.path.isdir(cam_dir):
+                    continue                 # 该相机目录不存在，跳过
+                cache_key = f"__filelist__::{cam_dir}"
+                if cache_key not in self.cache:
+                    self.cache[cache_key] = sorted(
+                        glob.glob(os.path.join(cam_dir, "*.jpg"))
+                    )
+                cam_file_lists[cam] = self.cache[cache_key]
+
+            # ---------- 3) 逐帧组装信息 ----------
+            for i, lidar_file in enumerate(lidar_files):
                 frame_id = os.path.basename(lidar_file).split('.')[0]
-                
-                # 为每个LiDAR帧找到对应的相机图像
+
                 cam_images = {}
                 cam_files_exist = False
                 for cam in cam_dirs:
-                    cam_dir = os.path.join(scene_dir, cam)
-                    cam_file = os.path.join(cam_dir, f"{frame_id}.jpg")
-                    if os.path.exists(cam_file):
-                        cam_images[cam] = cam_file
+                    jpg_files = cam_file_lists.get(cam, [])
+                    # 直接用索引 i 对齐；若相机帧数不足则跳过
+                    if i < len(jpg_files):
+                        cam_images[cam] = jpg_files[i]
                         cam_files_exist = True
-                
-                # 只有当至少有一个相机图像存在时，才添加这个帧
-                if cam_files_exist or i % 10 == 0:  # 确保即使没有图像，至少每10帧添加一个
+
+                # 加入条件：
+                #   • 至少拿到一张对应相机图像；或
+                #   • 每 10 帧采样一帧（即便缺图），避免数据过稀
+                if cam_files_exist or i % 10 == 0:
                     scene_frames.append({
                         'scene_dir': scene_dir,
                         'lidar_file': lidar_file,
@@ -204,12 +291,14 @@ class NavsimDataset(Dataset):
                         'scene_id': os.path.basename(scene_dir),
                         'frame_index': i,
                     })
-            
+
             return scene_frames
+
         except Exception as e:
             print(f"加载场景 {scene_dir} 时出错: {e}")
             return []
-    
+
+
     def __len__(self):
         """返回数据集大小"""
         return len(self.scene_info)
@@ -1233,6 +1322,7 @@ class NavsimDataset(Dataset):
             print(f"模仿分数计算出错: {e}")
             return random.uniform(0.7, 0.9)
 
+
 # 添加nuPlan数据加载功能
 class NuPlanDataset(Dataset):
     def __init__(self, db_files, split='train', transform=None):
@@ -1355,6 +1445,9 @@ class NuPlanDataset(Dataset):
                     img_path = os.path.join(os.path.dirname(sample_info['db_file']), img_filename[0])
                     image = self._load_nuplan_image(img_path)
                     images[mapped_name] = image
+
+                    if not img_path.exists():
+                        print("!!! image not found:", img_path)
         
         # 生成轨迹数据
         trajectory = self._generate_nuplan_trajectory(sample_info, conn, cursor)
@@ -2254,3 +2347,59 @@ def generate_planning_vocabulary(num_clusters=8192, save_path=None):
         print(f"规划词汇表保存到 {save_path}")
     
     return torch.from_numpy(vocabulary) 
+
+
+
+# ----------------------------------------------------------------------
+# Quick utility: load_single_sample
+# ----------------------------------------------------------------------
+# import torch
+# import torchvision.transforms as _tt
+# from PIL import Image
+# import open3d as _o3d
+# import numpy as np
+
+def load_single_sample(lidar_file: str,
+                       cam_files: dict | None = None,
+                       device: str | torch.device = "mps",
+                       img_resize: tuple[int,int] = (224,224)):
+    """
+    读取一条样本并返回给 inference_v02.py  
+    ----------
+    lidar_file : .pcd 或 .bin 路径  
+    cam_files  : { 'CAM_F0': ..., 'CAM_L0': ..., 'CAM_R0': ..., 'CAM_B0': ... }
+    """
+
+    # -------- LiDAR → BEV tensor --------
+    # 复用 NavsimDataset 的内部实现：借助 “未绑定方法” 直接调用
+    lidar_bev = NavsimDataset._load_point_cloud(None, lidar_file)         # shape [6,H,W]
+    lidar_bev = lidar_bev.unsqueeze(0).to(device)                         # +batch → [1,C,H,W]
+
+    # -------- 图像 --------
+    # 与 NavsimDataset 保持同一套归一化参数
+    _tf = transforms.Compose([
+        transforms.Resize(img_resize),
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225])
+    ])
+
+    def _load_img(path:str):
+        try:
+            return _tf(Image.open(path).convert("RGB"))
+        except Exception as e:
+            print(f"[load_single_sample] 读取图像失败 {path}: {e}")
+            return torch.zeros((3,*img_resize))
+
+    img_dict = {c: _load_img(cam_files[c]) if cam_files and c in cam_files else
+                   torch.zeros((3,*img_resize)) for c in ["CAM_F0","CAM_L0","CAM_R0","CAM_B0"]}
+
+    front_img  = img_dict["CAM_F0"].unsqueeze(0).to(device)              # [1,3,H,W]
+    side_imgs  = [img_dict["CAM_L0"].unsqueeze(0).to(device),
+                  img_dict["CAM_R0"].unsqueeze(0).to(device),
+                  img_dict["CAM_B0"].unsqueeze(0).to(device)]
+
+    return {
+        "lidar_bev": lidar_bev,      # [1,6,H,W]
+        "front_img": front_img,      # [1,3,H,W]
+        "side_imgs": side_imgs       # list([[1,3,H,W] * 3])
+    }

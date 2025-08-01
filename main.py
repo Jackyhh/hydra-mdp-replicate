@@ -19,10 +19,10 @@ def parse_args():
     
     # 训练参数
     parser.add_argument('--resume', action='store_true', help='从检查点恢复训练')
-    parser.add_argument('--checkpoint', type=str, default=None, help='模型检查点路径')
-    parser.add_argument('--batch_size', type=int, default=None, help='批大小')
-    parser.add_argument('--epochs', type=int, default=None, help='训练轮数')
-    parser.add_argument('--lr', type=float, default=None, help='学习率')
+    parser.add_argument('--checkpoint', type=str, default='./checkpoints/best_model.pth', help='模型检查点路径')
+    parser.add_argument('--batch_size', type=int, default=8, help='批大小')
+    parser.add_argument('--epochs', type=int, default=10, help='训练轮数')
+    parser.add_argument('--lr', type=float, default=0.001, help='学习率')
     
     # 分布式训练参数
     parser.add_argument('--distributed', action='store_true', help='启用分布式训练')

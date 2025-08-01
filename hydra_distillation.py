@@ -836,7 +836,10 @@ class PDMScoreCalculator:
             # 标量处理
             if torch.any(nc_optimized < 0.65):  # 安全的比较方式
                 adjustment = 1.3 - 0.5 * (nc_optimized / 0.65)
-                relative_importance['ttc'] *= adjustment
+                # relative_importance['ttc'] *= adjustment
+                # adjustment 可能是 shape [1] 的 tensor，先转成 float
+                adj = float(adjustment)
+                relative_importance['ttc'] *= adj
         
         # 计算组合权重
         total_importance = sum(relative_importance.values())
