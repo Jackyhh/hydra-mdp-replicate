@@ -231,6 +231,7 @@ class PerceptionHeads(nn.Module):
         )
         
         # 3D对象检测头
+        # 后续实车最好扩展成更复杂的检测头，如：车辆位姿，车道线，道路边缘，前车相对距离、速度等
         self.obj_head = nn.Sequential(
             nn.Conv2d(in_channels, 256, kernel_size=3, padding=1),
             nn.BatchNorm2d(256),
