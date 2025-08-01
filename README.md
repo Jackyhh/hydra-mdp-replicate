@@ -22,6 +22,7 @@ A personal replication and ongoing extension of NVIDIA’s [Hydra-MDP](https://g
 git clone https://github.com/Jackyhh/hydra-mdp-replicate.git
 cd hydra-mdp-replicate
 pip install -r requirements.txt
+```
 
 ## ✉️  Contact
 
