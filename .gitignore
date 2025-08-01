@@ -2,3 +2,5 @@ checkpoints/
 plots/
 vis_out/
 inference_*.py
+run_log.txt
+仿宋_GB2312.ttf
