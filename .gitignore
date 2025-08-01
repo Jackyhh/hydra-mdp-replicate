@@ -1,4 +1,4 @@
 # 不跟踪训练模型及可视化结果
 checkpoints/
 plots/
-
+vis_out/
